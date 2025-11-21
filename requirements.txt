@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+motor
+apscheduler
+python-dotenv
+pandas
+openpyxl
+requests
