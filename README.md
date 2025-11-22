@@ -44,11 +44,51 @@ pip install -r requirements.txt
 cp .env.example .env  # If you have an example file, or create manually
 ```
 
-5. **Configure environment variables**
+5. **Configure MongoDB**
+
+The application supports both **local MongoDB** and **MongoDB Atlas** (cloud). Choose one:
+
+### Option A: Local MongoDB (Development)
+
+```env
+# MongoDB Configuration - Local
+MONGODB_URL=mongodb://localhost:27017
+DATABASE_NAME=email_scheduler
+```
+
+Then start MongoDB:
+```bash
+# Using Docker
+docker run -d -p 27017:27017 --name mongodb mongo
+
+# Or use your local MongoDB installation
+```
+
+### Option B: MongoDB Atlas (Cloud) - Recommended for Production
+
+1. Create a free account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register)
+2. Create a free cluster (M0 Sandbox)
+3. Create a database user (Database Access → Add New User)
+4. Configure Network Access (Allow from anywhere or specific IPs)
+5. Get your connection string:
+   - Go to Database → Connect → Connect your application
+   - Copy the connection string
+   - Format: `mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority`
+
+```env
+# MongoDB Configuration - Atlas (Cloud)
+MONGODB_URL=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/email_scheduler?retryWrites=true&w=majority
+DATABASE_NAME=email_scheduler
+```
+
+**Note:** The application automatically detects Atlas connections (`mongodb+srv://`) and uses ServerApi v1. For localhost (`mongodb://`), it uses standard connection.
+
+6. **Configure other environment variables**
+
 Create a `.env` file in the root directory:
 ```env
-# MongoDB Configuration
-MONGODB_URL=mongodb://localhost:27017
+# MongoDB Configuration (choose local or Atlas above)
+MONGODB_URL=mongodb://localhost:27017  # or Atlas connection string
 DATABASE_NAME=email_scheduler
 
 # SMTP Email Configuration
@@ -62,20 +102,16 @@ EMAIL_FROM=your_email@gmail.com
 SCHEDULER_TIMEZONE=UTC
 ```
 
-6. **Start MongoDB** (if running locally)
-```bash
-# Using Docker
-docker run -d -p 27017:27017 --name mongodb mongo
-
-# Or use your local MongoDB installation
-```
-
 7. **Run the application**
 ```bash
 uvicorn app.main:app --reload
 ```
 
 The API will be available at: `http://localhost:8000`
+
+**Connection Status:** When the app starts, you'll see connection messages:
+- Local MongoDB: `✓ Connected to MongoDB: email_scheduler (Connection type: Local MongoDB)`
+- MongoDB Atlas: `✓ Connected to MongoDB: email_scheduler (Connection type: MongoDB Atlas (Cloud))`
 
 ### 📚 API Documentation
 

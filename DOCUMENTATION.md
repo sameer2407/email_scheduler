@@ -32,6 +32,68 @@ Currently, the API does not require authentication. In production, you should im
 
 ---
 
+## Database Configuration
+
+The application supports both **local MongoDB** and **MongoDB Atlas** (cloud) connections. The connection type is automatically detected based on the connection string format.
+
+### Local MongoDB (Development)
+
+For local development, use a standard MongoDB connection string:
+
+```env
+MONGODB_URL=mongodb://localhost:27017
+DATABASE_NAME=email_scheduler
+```
+
+**Requirements:**
+- MongoDB must be running locally on port 27017
+- Can use Docker: `docker run -d -p 27017:27017 mongo`
+
+### MongoDB Atlas (Cloud) - Production
+
+For cloud/production deployments, use MongoDB Atlas connection string:
+
+```env
+MONGODB_URL=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/email_scheduler?retryWrites=true&w=majority
+DATABASE_NAME=email_scheduler
+```
+
+**Features:**
+- Automatically uses `ServerApi('1')` for Atlas connections
+- Detected by `mongodb+srv://` prefix
+- Supports automatic connection pooling and retries
+
+**Getting MongoDB Atlas Connection String:**
+
+1. Sign up at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+2. Create a free cluster (M0 Sandbox)
+3. Create database user (Database Access → Add New User)
+4. Configure Network Access (allow your IP or all IPs)
+5. Get connection string:
+   - Database → Connect → Connect your application
+   - Select Python driver
+   - Copy connection string
+   - Format: `mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority`
+   - Add database name: `/email_scheduler?retryWrites=true&w=majority`
+
+**Connection String Examples:**
+
+**Local MongoDB:**
+```
+mongodb://localhost:27017
+mongodb://localhost:27017/email_scheduler
+```
+
+**MongoDB Atlas:**
+```
+mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/email_scheduler?retryWrites=true&w=majority
+mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net/?appName=Cluster0
+```
+
+**Note:** The application automatically ensures the database name is included in the connection string and uses appropriate connection settings based on the connection type.
+
+---
+
 ## General Endpoints
 
 ### 1. Root Endpoint
@@ -657,6 +719,10 @@ Valid `user_id` range: 1-10 (as per JSONPlaceholder API)
 - Email status is updated automatically: `pending` → `sent` or `failed`
 - All datetime fields use ISO 8601 format: `YYYY-MM-DDTHH:MM:SS`
 - MongoDB ObjectIds are returned as strings in the API responses
+- **MongoDB Connection:** Supports both localhost (`mongodb://`) and MongoDB Atlas (`mongodb+srv://`)
+  - Atlas connections automatically use ServerApi v1
+  - Local connections use standard MongoDB driver
+  - Connection type is auto-detected from the connection string format
 - **Posts are automatically included** in all emails based on `user_id`
 - **Todos are optional** and only included when `include_todos: true`
 - If API calls fail (network issues, timeout), the email will still be sent without the API data (error is logged)
