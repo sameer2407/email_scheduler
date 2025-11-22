@@ -58,10 +58,5 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Excel files (ignore uploaded and sample files)
-uploads/
-sample_*.xlsx
-sample_*.xls
-*.xlsx
-*.xls
+
 
