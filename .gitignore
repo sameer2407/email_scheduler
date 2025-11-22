@@ -58,8 +58,10 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Excel files (if you want to ignore uploaded files)
+# Excel files (ignore uploaded and sample files)
 uploads/
+sample_*.xlsx
+sample_*.xls
 *.xlsx
 *.xls
 

@@ -18,7 +18,7 @@ def read_excel(file_path: str):
     try:
         df = pd.read_excel(file_path)
     except Exception as e:
-        raise Exception("Unable to read the Excel file. Make sure the file is valid.") from e
+        raise Exception("Unable to read Excel file") from e
     
     missing = []
     for column in REQUIRED_COLUMNS:
@@ -26,7 +26,7 @@ def read_excel(file_path: str):
             missing.append(column)
     
     if missing:
-        raise Exception(f"Missing required columns: {', '.join(missing)}")
+        raise Exception(f"Missing columns: {', '.join(missing)}")
     
     schedules = []
     for _, row in df.iterrows():
@@ -35,7 +35,9 @@ def read_excel(file_path: str):
                 "email": row["email"],
                 "message": row["message"],
                 "scheduled_time": convert_to_datetime(row["scheduled_time"]),
-                "timezone": row["timezone"]
+                "timezone": row["timezone"],
+                "include_todos": row.get("include_todos", False),
+                "user_id": int(row.get("user_id", 1)) if pd.notna(row.get("user_id")) else 1
             }
             schedules.append(schedule)
         except Exception as e:
