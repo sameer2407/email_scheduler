@@ -1,165 +1,165 @@
 # 📧 Email Scheduler
 
-A robust email scheduling backend service built with FastAPI, MongoDB, and APScheduler. Schedule emails to be sent at specific times with timezone support, bulk import from Excel, and integration with external APIs.
+[![Python](https://img.shields.io/badge/python-3.12+-3776AB?logo=python&logoColor=fff)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-ready-009688?logo=fastapi&logoColor=fff)](https://fastapi.tiangolo.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-6.x-47A248?logo=mongodb&logoColor=fff)](https://www.mongodb.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-000?logo=open-source-initiative&logoColor=fff)](LICENSE)
+
+Email Scheduler is a FastAPI + APScheduler backend that lets teams queue personalized emails, enrich them with JSONPlaceholder posts/todos, and deliver them on precise timezones using MongoDB as a durable job store.
+
+> 🧭 Need to dive deeper? Check `DOCUMENTATION.md` for exhaustive endpoint specs.
+
+## 🗂️ Quick Links
+
+| Section | Purpose |
+| --- | --- |
+| [Features](#-features) | Core capabilities at a glance |
+| [Architecture](#-architecture-overview) | How scheduling, queues, and APIs connect |
+| [Setup](#-quick-start) | From clone to running server |
+| [Usage](#-usage-examples) | Sample cURL/Postman flows |
+| [Excel Format](#-excel-file-format) | Columns for bulk uploads |
+| [Troubleshooting](#-troubleshooting) | Self-service fixes |
 
 ## ✨ Features
 
-- 📅 **Schedule Emails** - Send emails at specific times with timezone support
-- 📊 **Bulk Import** - Upload Excel files to schedule multiple emails at once
-- 🔄 **Public API Integration** - Automatically include posts and optional todo lists from JSONPlaceholder API
-- 🌍 **Timezone Support** - Schedule emails in any timezone (UTC, EST, IST, etc.)
-- 📝 **RESTful API** - Clean and intuitive API endpoints
-- ⚡ **Background Jobs** - APScheduler handles all scheduled tasks
-- 🔍 **Status Tracking** - Track email status (pending, sent, failed)
+- 📅 **Timezone-aware scheduling** – queue emails in UTC or any IANA timezone
+- 📊 **Bulk Excel imports** – convert spreadsheets to schedules in one call
+- 🔄 **External enrichment** – attach JSONPlaceholder posts and optional todo summaries
+- ⚡ **Reliable background jobs** – APScheduler drives retries and delivery windows
+- 🔍 **Status tracking** – surfaces `pending`, `sent`, `failed` states per schedule
+- 📝 **Well-documented REST API** – interactive Swagger / ReDoc built-in
+- 🔐 **Environment-driven config** – swap SMTP, Mongo, and scheduler settings per deploy
+
+## 🏗️ Architecture Overview
+
+```
+Client (Swagger, Postman, Excel uploader)
+        │
+FastAPI routes (`/schedules`, `/excel/upload`)
+        │
+MongoDB (schedule store) ── APScheduler (jobs & triggers)
+        │                                   │
+Public API service (posts/todos)     Email sender (SMTP)
+```
+
+- **FastAPI** handles validation, routing, and OpenAPI generation.
+- **MongoDB** persists schedules and doubles as APScheduler's backing store.
+- **APScheduler** runs in-process and wakes up according to the configured timezone.
+- **Email services** build payloads, run optional formatting (todos/posts), and push to SMTP.
+
+## 🧰 Tech Stack
+
+- FastAPI, Starlette, Pydantic v2
+- APScheduler for cron-like trigger management
+- MongoDB / MongoDB Atlas for persistence
+- Requests for public API enrichment
+- OpenPyXL + pandas utilities for Excel ingestion
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.8+
-- MongoDB (local or remote)
-- SMTP email account (Gmail recommended)
+- Python 3.10+ (3.12 recommended)
+- MongoDB (local Docker container or Atlas cluster)
+- SMTP inbox (Gmail works well when using an App Password)
 
-### Installation
+### 1. Clone & bootstrap
 
-1. **Clone the repository**
 ```bash
 git clone <your-repo-url>
 cd email_scheduler
-```
-
-2. **Create and activate virtual environment**
-```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. **Install dependencies**
-```bash
+source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. **Create `.env` file**
-```bash
-cp .env.example .env  # If you have an example file, or create manually
-```
+### 2. Configure environment
 
-5. **Configure MongoDB**
-
-The application supports both **local MongoDB** and **MongoDB Atlas** (cloud). Choose one:
-
-### Option A: Local MongoDB (Development)
+Create `.env` in the repo root:
 
 ```env
-# MongoDB Configuration - Local
+# MongoDB: choose local or Atlas
 MONGODB_URL=mongodb://localhost:27017
-DATABASE_NAME=email_scheduler
-```
-
-Then start MongoDB:
-```bash
-# Using Docker
-docker run -d -p 27017:27017 --name mongodb mongo
-
-# Or use your local MongoDB installation
-```
-
-### Option B: MongoDB Atlas (Cloud) - Recommended for Production
-
-1. Create a free account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register)
-2. Create a free cluster (M0 Sandbox)
-3. Create a database user (Database Access → Add New User)
-4. Configure Network Access (Allow from anywhere or specific IPs)
-5. Get your connection string:
-   - Go to Database → Connect → Connect your application
-   - Copy the connection string
-   - Format: `mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority`
-
-```env
-# MongoDB Configuration - Atlas (Cloud)
-MONGODB_URL=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/email_scheduler?retryWrites=true&w=majority
-DATABASE_NAME=email_scheduler
-```
-
-**Note:** The application automatically detects Atlas connections (`mongodb+srv://`) and uses ServerApi v1. For localhost (`mongodb://`), it uses standard connection.
-
-6. **Configure other environment variables**
-
-Create a `.env` file in the root directory:
-```env
-# MongoDB Configuration (choose local or Atlas above)
-MONGODB_URL=mongodb://localhost:27017  # or Atlas connection string
+# or MONGODB_URL=mongodb+srv://user:pass@cluster.mongodb.net/email_scheduler
 DATABASE_NAME=email_scheduler
 
-# SMTP Email Configuration
+# SMTP (Gmail example)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your_email@gmail.com
 SMTP_PASSWORD=your_app_password
 EMAIL_FROM=your_email@gmail.com
 
-# Scheduler Configuration
+# Scheduler defaults
 SCHEDULER_TIMEZONE=UTC
 ```
 
-7. **Run the application**
+Need sample data? Run `python create_sample_excel.py` to generate `sample_schedules.xlsx`.
+
+#### Local Mongo using Docker
+
+```bash
+docker run -d --name mongodb -p 27017:27017 mongo:7
+```
+
+#### MongoDB Atlas (recommended for prod)
+
+1. Create an Atlas cluster (M0 is free).
+2. Add a database user and IP allowlist.
+3. Paste the SRV URI (starts with `mongodb+srv://`) into `MONGODB_URL`.
+4. Keep `DATABASE_NAME=email_scheduler`.
+
+Atlas URIs automatically trigger ServerApi v1 in the driver; localhost URIs use the standard client.
+
+### 3. Run the API
+
 ```bash
 uvicorn app.main:app --reload
 ```
 
-The API will be available at: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- Health check: `http://localhost:8000/health`
 
-**Connection Status:** When the app starts, you'll see connection messages:
-- Local MongoDB: `✓ Connected to MongoDB: email_scheduler (Connection type: Local MongoDB)`
-- MongoDB Atlas: `✓ Connected to MongoDB: email_scheduler (Connection type: MongoDB Atlas (Cloud))`
+Application logs show whether the connection type is **Local MongoDB** or **MongoDB Atlas** at startup.
 
-### 📚 API Documentation
+### 4. Optional development helpers
 
-Once the server is running, visit:
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
+- `uvicorn app.main:app --reload --port 9000` – run on a custom port
+- `ENV_FILE=.env.staging uvicorn app.main:app` – point to alternate env files (via shell export)
 
 ## 📖 Usage Examples
 
-### Create a Schedule (Postman/cURL)
+### Create a schedule
 
 ```bash
-POST http://localhost:8000/schedules/
-Content-Type: application/json
-
-{
-  "email": "recipient@example.com",
-  "message": "Your scheduled email message",
-  "scheduled_time": "2025-11-23T10:32:00",
-  "timezone": "Asia/Kolkata",
-  "include_todos": true,
-  "user_id": 1
-}
+curl -X POST http://localhost:8000/schedules/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "recipient@example.com",
+    "message": "Your scheduled email message",
+    "scheduled_time": "2025-11-23T10:32:00",
+    "timezone": "Asia/Kolkata",
+    "include_todos": true,
+    "user_id": 1
+  }'
 ```
 
-### Get All Schedules
+### Filter schedules by status
 
 ```bash
-GET http://localhost:8000/schedules/
-
-# Filter by status
-GET http://localhost:8000/schedules/?status=pending
+curl "http://localhost:8000/schedules/?status=pending"
 ```
 
-### Upload Excel File
+### Upload Excel file
 
-1. Create a sample Excel file:
 ```bash
-python create_sample_excel.py
+python create_sample_excel.py            # generates sample_schedules.xlsx
+curl -X POST http://localhost:8000/excel/upload \
+  -F "file=@sample_schedules.xlsx"
 ```
 
-2. Upload via API:
-```bash
-POST http://localhost:8000/excel/upload
-Content-Type: multipart/form-data
-
-file: sample_schedules.xlsx
-```
+The upload endpoint validates headers, datatypes, and timezone strings before committing jobs into MongoDB.
 
 ## 📋 Excel File Format
 
@@ -213,6 +213,15 @@ email_scheduler/
 └── .gitignore             # Git ignore rules
 ```
 
+## 🧭 Deployment Checklist
+
+- [ ] Configure `MONGODB_URL`, `DATABASE_NAME`, and SMTP secrets via environment manager (Docker secrets, GitHub Actions, etc.).
+- [ ] Enable HTTPS termination in your reverse proxy (Traefik, Nginx, Caddy).
+- [ ] Set `SCHEDULER_TIMEZONE` to the primary business timezone or `UTC`.
+- [ ] Turn on structured logging (e.g., `uvicorn --log-config logging.ini`) if you need JSON logs.
+- [ ] Configure process supervision (systemd, Docker, PM2) to auto-restart the API.
+- [ ] Monitor `/health` with your uptime checker.
+
 ## 📡 API Endpoints
 
 | Method | Endpoint | Description |
@@ -234,44 +243,36 @@ email_scheduler/
 
 ## 🧪 Testing
 
-Use the interactive API documentation at `http://localhost:8000/docs` to test all endpoints.
-
-Or use Postman/cURL:
+- **Interactive** – open `http://localhost:8000/docs`, authorize if needed, and send requests directly from Swagger UI.
+- **Smoke tests** – run the three cURL snippets below after every deployment:
 
 ```bash
-# Health check
 curl http://localhost:8000/health
-
-# Create schedule
+curl http://localhost:8000/schedules/
 curl -X POST http://localhost:8000/schedules/ \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","message":"Test","scheduled_time":"2025-11-23T10:00:00","timezone":"UTC"}'
-
-# Get schedules
-curl http://localhost:8000/schedules/
 ```
+
+- **Excel ingestion** – execute `python create_sample_excel.py` and upload the generated file to ensure bulk imports still work after schema changes.
+- **Background worker** – verify that cron jobs fire by creating a schedule a few minutes out and confirming the logs/SMTP inbox.
+
+## 📊 Monitoring & Observability
+
+- `/health` – lightweight readiness probe.
+- MongoDB + APScheduler logs include job IDs and state transitions; ship them to your log stack of choice.
+- Add alerting on `failed` schedules via a MongoDB change stream or a periodic analytics job if you need proactive paging.
+- Consider wrapping `email_sender.send_email` with metrics (Prometheus, StatsD) for delivery counts and latency tracking.
 
 ## 🐛 Troubleshooting
 
-**MongoDB Connection Error:**
-```bash
-# Check if MongoDB is running
-docker ps | grep mongo
-
-# Check MongoDB logs
-docker logs mongodb
-```
-
-**Email Not Sending:**
-- Verify SMTP credentials in `.env`
-- Check that you're using an App Password (not regular password) for Gmail
-- Ensure 2FA is enabled on your Gmail account
-- Check server logs for error messages
-
-**Scheduler Not Working:**
-- Ensure scheduled time is in the future
-- Check server logs for scheduler errors
-- Verify timezone format is correct (e.g., `Asia/Kolkata`, not `IST`)
+| Symptom | Checks |
+| --- | --- |
+| Cannot connect to MongoDB | `docker ps | grep mongo`, inspect `docker logs mongodb`, confirm connection string matches SRV/local format |
+| Emails stuck in `pending` | Confirm SMTP credentials, use Gmail App Password, ensure port 587 is open, check server logs for `smtplib` errors |
+| Scheduler never fires | Verify target time is in the future, confirm `SCHEDULER_TIMEZONE`, ensure server clock/timezone is correct |
+| Excel upload fails | Make sure headers match the table below exactly, ensure `scheduled_time` is ISO-like (`2025-11-23T10:00:00`), confirm booleans are `true/false` |
+| JSONPlaceholder data missing | Service is rate-limited occasionally—logs will show warning but emails still send; retry later or cache results |
 
 ## 📝 License
 
@@ -279,11 +280,14 @@ MIT License
 
 ## 👤 Author
 
-Your Name
+Sameer
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome!
+1. Fork the repo and create a feature branch (`git checkout -b feat/my-change`).
+2. Add or update documentation alongside your code changes.
+3. Ensure the API boots locally (`uvicorn app.main:app --reload`) and basic smoke tests pass.
+4. Open a pull request describing motivation, screenshots/logs, and manual test notes.
 
 ## 🔗 Public API Integration
 

@@ -6,13 +6,18 @@ Complete API documentation for Email Scheduler service.
 
 1. [Base URL](#base-url)
 2. [Authentication](#authentication)
-3. [Endpoints](#endpoints)
+3. [Request Headers](#request-headers)
+4. [Database Configuration](#database-configuration)
+5. [Endpoints](#endpoints)
    - [General Endpoints](#general-endpoints)
    - [Schedule Endpoints](#schedule-endpoints)
    - [Excel Upload](#excel-upload)
-4. [Data Models](#data-models)
-5. [Error Responses](#error-responses)
-6. [Examples](#examples)
+6. [Data Models](#data-models)
+7. [Error Responses](#error-responses)
+8. [Data Validation Rules](#data-validation-rules)
+9. [Schedule Lifecycle](#schedule-lifecycle)
+10. [Examples](#examples)
+11. [FAQ](#faq)
 
 ---
 
@@ -29,6 +34,15 @@ For production, replace with your server URL.
 ## Authentication
 
 Currently, the API does not require authentication. In production, you should implement authentication middleware.
+
+---
+
+## Request Headers
+
+- `Content-Type: application/json` – required for all JSON endpoints.
+- `Accept: application/json` – optional but recommended for explicitness.
+- `multipart/form-data` – required when uploading Excel files to `/excel/upload`.
+- `X-Request-Id` – optional custom header you can send if you want to correlate requests in your logs; the service simply echoes it back via middleware if you add one.
 
 ---
 
@@ -210,6 +224,8 @@ Retrieve all schedules, optionally filtered by status.
 
 **Query Parameters:**
 - `status` (optional, string) - Filter by status: `pending`, `sent`, or `failed`
+
+> ⏱️ **Limit:** The endpoint returns up to 100 documents per call (see `length=100` in the cursor). Add pagination if you expect more; contributions welcome!
 
 **Response:**
 ```json
@@ -528,6 +544,39 @@ All fields are optional:
 
 ---
 
+## Data Validation Rules
+
+| Field | Validation | Notes |
+| --- | --- | --- |
+| `email` | RFC 5322-compliant email | Validation handled by Pydantic + `email_validator` |
+| `message` | Non-empty string | No length limit, but SMTP servers typically prefer <10k chars |
+| `scheduled_time` | ISO 8601 (`YYYY-MM-DDTHH:MM:SS`) | Must be in the future; scheduler rejects past timestamps |
+| `timezone` | IANA timezone string | Examples: `UTC`, `Asia/Kolkata`, `America/New_York`; abbreviations like `IST` are invalid |
+| `include_todos` | Boolean | Defaults to `false` when omitted |
+| `user_id` | Integer 1–10 | Matches JSONPlaceholder ranges; defaults to `1` |
+| Excel upload columns | Must match header names exactly | Validation fails fast if headers are missing or typed differently |
+
+If any validation error occurs, FastAPI returns a `422 Unprocessable Entity` response describing the exact field and constraint.
+
+---
+
+## Schedule Lifecycle
+
+1. **pending** – Created and stored in MongoDB; APScheduler job is registered.
+2. **sent** – SMTP delivery succeeded. `sent_at` is populated with UTC timestamp.
+3. **failed** – Email send attempt failed; logs capture stack trace. You may PATCH the schedule to try again (create a new future `scheduled_time`).
+
+Flow:
+
+```
+Create schedule → pending → (send attempt) → sent ✅
+                                    └──────→ failed ❌ (inspect logs, optionally reschedule)
+```
+
+Updating `scheduled_time` or `timezone` automatically removes the old job and re-registers it with the new metadata.
+
+---
+
 ## Examples
 
 ### Complete Workflow Example
@@ -736,4 +785,20 @@ For interactive testing and documentation, visit:
 - **ReDoc**: `http://localhost:8000/redoc`
 
 These provide an interactive interface to test all endpoints without writing code.
+
+---
+
+## FAQ
+
+**Does the API require authentication?**  
+Not yet. For production deployments, front the service with an API gateway or add FastAPI dependencies (OAuth2/JWT) to guard the routes.
+
+**How do I retry a failed email?**  
+Send a `PUT /schedules/{id}` request with a new `scheduled_time` (future) and optionally tweak the message. The system re-queues the job automatically.
+
+**Is pagination available?**  
+The `/schedules/` endpoint currently returns all records with an optional `status` filter. Add MongoDB pagination (skip/limit) easily if you expect large datasets.
+
+**Can I change the SMTP provider?**  
+Yes. Update the SMTP host/port/user/password env vars; the email sender uses Python's `smtplib`, so any provider compatible with STARTTLS or SSL works.
 
